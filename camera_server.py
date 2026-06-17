@@ -42,7 +42,7 @@ frame_locks = {k: threading.Lock() for k in CAMERAS}
 
 
 def camera_capture_loop(cam_id: int, cam_index: int):
-    cap = cv2.VideoCapture(cam_index, cv2.CAP_MSMF)
+    cap = cv2.VideoCapture(cam_index, cv2.CAP_DSHOW)
     cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
     cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
     cap.set(cv2.CAP_PROP_FPS, 30)
