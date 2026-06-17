@@ -1,6 +1,6 @@
 robot:
   type: so101_follower
-  port: /dev/ttyACM0
+  port: /dev/ttyACM1
   id: my_awesome_follower_arm
   cameras:
     side:
@@ -12,7 +12,7 @@ robot:
 
 teleop:
   type: so101_leader
-  port: /dev/ttyACM1
+  port: /dev/ttyACM0
   id: my_awesome_leader_arm
 
 dataset:
@@ -22,4 +22,5 @@ dataset:
   episode_time_s: 20
   reset_time_s: 5
   push_to_hub: true
+  single_task: "Pick and place"
 
