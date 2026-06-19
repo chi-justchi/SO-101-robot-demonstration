@@ -29,6 +29,10 @@ CMD=(lerobot-record --config_path "$CONFIG"
     --display_save_path "$RRD_FILE"
 )
 
+if [[ -f "$DATASET_ROOT/meta/tasks.parquet" ]]; then
+    CMD+=(--resume true)
+fi
+
 if [[ -n "$TASK" ]]; then
     CMD+=(--dataset.single_task "$TASK")
 fi

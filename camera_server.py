@@ -18,21 +18,30 @@ from socketserver import ThreadingMixIn
 
 # DEBUG
 # for i in range(10):
-#     cap = cv2.VideoCapture(i, cv2.CAP_DSHOW)
-#     if cap.isOpened():
-#         ret, frame = cap.read()
-#         print(f"Camera index {i}: opened, frame={ret}")
-#     else:
-#         print(f"Camera index {i}: not available")
-#     cap.release()
+#     print(f"\nTesting camera index {i}")
 
+#     for backend_name, backend in [
+#         ("MSMF", cv2.CAP_MSMF),
+#         ("DSHOW", cv2.CAP_DSHOW),
+#         ("ANY", cv2.CAP_ANY),
+#     ]:
+#         cap = cv2.VideoCapture(i, backend)
+#         ret, frame = cap.read() if cap.isOpened() else (False, None)
+
+#         if ret:
+#             print(f"  ✅ index {i} works with {backend_name}, frame shape={frame.shape}")
+#         else:
+#             print(f"  ❌ index {i} not working with {backend_name}")
+
+#         cap.release()
 class ThreadedHTTPServer(ThreadingMixIn, HTTPServer):
     """Handles each request in a separate thread."""
     daemon_threads = True
 
 
 CAMERAS = {
-    1: {"index": 0, "name": "standalone"},
+    0: {"index": 0, "name": "standalone_camera"},
+    1: {"index": 1, "name": "follower_robot_camera"},
 }
 PORT = 8080
 
@@ -42,26 +51,42 @@ frame_locks = {k: threading.Lock() for k in CAMERAS}
 
 
 def camera_capture_loop(cam_id: int, cam_index: int):
-    cap = cv2.VideoCapture(cam_index, cv2.CAP_DSHOW)
-    cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
-    cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
-    cap.set(cv2.CAP_PROP_FPS, 30)
-    cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
+    cap = None
 
-    if not cap.isOpened():
-        print(f"ERROR: Could not open camera index {cam_index}")
+    for backend in (cv2.CAP_DSHOW,):
+        test_cap = cv2.VideoCapture(cam_index, backend)
+
+        if not test_cap.isOpened():
+            test_cap.release()
+            continue
+
+        test_cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
+        test_cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 360)
+        test_cap.set(cv2.CAP_PROP_FPS, 25)
+        test_cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
+
+        ret, frame = test_cap.read()
+
+        if ret and frame is not None:
+            cap = test_cap
+            print(f"Camera {cam_index} ({CAMERAS[cam_id]['name']}) opened with backend {backend}.")
+            break
+
+        test_cap.release()
+
+    if cap is None:
+        print(f"ERROR: Could not open/read camera index {cam_index}")
         return
 
-    print(f"Camera {cam_index} ({CAMERAS[cam_id]['name']}) opened.")
     while True:
         ret, frame = cap.read()
-        if ret:
-            _, jpeg = cv2.imencode(".jpg", frame, [cv2.IMWRITE_JPEG_QUALITY, 85])
-            with frame_locks[cam_id]:
-                latest_frames[cam_id] = jpeg.tobytes()
+        if ret and frame is not None:
+            ok, jpeg = cv2.imencode(".jpg", frame, [cv2.IMWRITE_JPEG_QUALITY, 85])
+            if ok:
+                with frame_locks[cam_id]:
+                    latest_frames[cam_id] = jpeg.tobytes()
         else:
             time.sleep(0.01)
-
 
 class MJPEGHandler(BaseHTTPRequestHandler):
     def log_message(self, format, *args):
@@ -134,13 +159,12 @@ if __name__ == "__main__":
     # Start capture threads for all cameras
     for cam_id, info in CAMERAS.items():
         t = threading.Thread(
-        target=camera_capture_loop,
-        args=(cam_id, info["index"]),
-        daemon=True
-    )
-    t.start()
-    time.sleep(1.5)  # IMPORTANT: let Windows initialize one camera before opening the next
-
+            target=camera_capture_loop,
+            args=(cam_id, info["index"]),
+            daemon=True
+        )
+        t.start()
+        time.sleep(1.5)
     # Wait for all cameras to produce first frame
     print("Waiting for cameras to warm up...")
     deadline = time.time() + 10
