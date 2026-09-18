@@ -34,3 +34,4 @@ The current setup focuses on object manipulation tasks such as **locating, reach
 This setup is being used to study deployment-time robustness in Vision-Language-Action models.
 
 ## Demo
+https://github.com/chi-justchi/SO-101-robot-demonstration/blob/main/IMG_6273.mov
